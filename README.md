@@ -42,10 +42,6 @@ The full transformation SQL is located here:
 
 ➡️ **sql/populate_company_daily_activity.sql**
 
-A staging table DDL example is here:
-
-➡️ **sql/create_tables.sql**
-
 ## 3. Azure Data Factory (ADF) Flow
 
 The pipeline follows a simple and reliable orchestration pattern with three main pipelines and one master pipeline.
