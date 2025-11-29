@@ -112,4 +112,45 @@ The pseudocode is located here:
 
 
 ## 5. 30-Minute Constraint Reasoning
-...
+
+If I only had **30 minutes before tomorrow’s scheduled pipeline run**, I would implement the part of the pipeline that carries the **highest risk** and would cause the **largest impact** if missing.
+
+### I would implement first: `pl_ingest_product_usage` (API ingestion)
+
+**Reasoning:**
+
+- The product-usage API is the **most fragile** part of the pipeline  
+- API failures can occur due to:
+  - authentication issues  
+  - rate limits  
+  - schema changes  
+  - network/timeouts  
+- If API ingestion fails, we lose that day's usage data permanently  
+- Missing usage data breaks:
+  - 7-day rolling metrics  
+  - churn analysis  
+  - daily/weekly trend charts  
+
+In short:
+
+> **No API data → the dashboard is useless.**
+
+---
+
+### What I would postpone (safe to delay)
+
+These can run later without breaking tomorrow’s run:
+
+- pl_ingest_crm_daily because it will be straitforward and alos because the data will be already in the blob and there will be missing data.
+- pl_build_company_daily_activity because it mean nathing to create this without having the api data and loosing the api data for that day.
+- Rolling metric calculations (`7d_active_users`)
+- Churn detection (`is_churn_risk`)
+- Documentation, diagrams, optimization
+
+These are important but **not critical for tomorrow’s success**.
+
+---
+
+### Summary
+
+> If I only had 30 minutes, I would ensure **API ingestion is working end-to-end**, because it is the highest-risk component and the only part that can permanently break the pipeline if not ready. 
