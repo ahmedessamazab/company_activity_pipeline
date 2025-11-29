@@ -21,7 +21,6 @@ Daily grain supports these analytics:
 Table: analytics.company_daily_activity
 
 
-| -------------------------------------------------------------------------- |
 | Column           | Type      | Source  | Description                       |
 | ---------------- | --------- | ------- | --------------------------------- |
 | activity_date    | DATE      | API     | Date of activity                  |
@@ -35,7 +34,6 @@ Table: analytics.company_daily_activity
 | 7d_active_users  | INT       | Derived | Rolling 7-day sum of active users |
 | is_churn_risk    | BOOLEAN   | Derived | 1 if no usage for ≥7 days         |
 | record_loaded_at | TIMESTAMP | ETL     | Load timestamp                    |
-| -------------------------------------------------------------------------- |
 
 
 ## 2. Sample SQL
