@@ -105,7 +105,11 @@ The API ingestion is the most critical part due to:
   - Email
 
 ## 4. API Ingestion Pseudocode
-...
+
+The pseudocode is located here:
+
+➡️ api/fetch_product_usage_pseudocode.py
+
 
 ## 5. 30-Minute Constraint Reasoning
 ...
