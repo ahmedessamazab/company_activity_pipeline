@@ -1,2 +1,16 @@
-# company_activity_pipeline
-A complete data engineering pipeline for Company Activity analytics, including ADF orchestration, and optional Airflow orchestration.
+# Company Activity Pipeline & Data Model
+
+## 1. Target Analytics Table Design
+...
+
+## 2. Sample SQL
+...
+
+## 3. ADF Flow
+...
+
+## 4. API Ingestion Pseudocode
+...
+
+## 5. 30-Minute Constraint Reasoning
+...
