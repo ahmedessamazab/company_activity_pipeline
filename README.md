@@ -39,7 +39,14 @@ Table: analytics.company_daily_activity
 
 
 ## 2. Sample SQL
-...
+
+The full transformation SQL is located here:
+
+➡️ **sql/populate_company_daily_activity.sql**
+
+A staging table DDL example is here:
+
+➡️ **sql/create_tables.sql**
 
 ## 3. ADF Flow
 ...
