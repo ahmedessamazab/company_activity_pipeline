@@ -150,3 +150,112 @@ These are important but **not critical for tomorrow’s success**.
 ### Summary
 
 > If I only had 30 minutes, I would ensure **API ingestion is working end-to-end**, because it is the highest-risk component and the only part that can permanently break the pipeline if not ready. 
+
+
+
+# **6. Local Airflow + MySQL Demo Environment (Extra Implementation)**
+
+To demonstrate the pipeline end-to-end using real orchestration, I built a **local Airflow environment** using Docker Compose and connected it to a MySQL database running on MySQL Workbench.
+
+This validates the pipeline logic outside of Azure Data Factory.
+
+---
+
+## **6.1 Airflow Local Setup (Docker)**
+
+I created a dedicated local Airflow instance using the official **Apache Airflow Docker Compose** template.
+Key points:
+
+* **CeleryExecutor**
+* **Redis + Postgres** included automatically
+### 📁 Folder Layout
+
+```
+airflow-local/
+│── dags/
+│     └── company_activity_mysql_dag.py
+│── docker-compose.yaml
+```
+
+### 🔧 Docker Compose volumes
+
+```yaml
+volumes:
+  - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+  - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+  - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+  - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+```
+
+This ensures Airflow sees both:
+
+* the **DAG**
+---
+
+## **6.2 MySQL Connection Setup**
+
+Inside Airflow UI → **Admin → Connections**, I configured:
+
+### 🗄️ **Connection ID**
+
+`mysql_local`
+
+### 🔧 **Settings**
+
+| Parameter | Value            |
+| --------- | ---------------- |
+| Conn Type | MySQL            |
+| Host      | 127.0.0.1        |
+| Schema    | company_activity |
+| Login     | root             |
+| Password  | ********         |
+| Port      | 3306             |
+
+This connects Airflow to my local MySQL Workbench schema where:
+
+* `stg.crm_daily`
+* `stg.product_usage_daily`
+* `analytics.company_daily_activity`
+
+are created.
+
+---
+
+## **6.3 The DAG Implemented in Airflow**
+
+
+## **DAG Responsibilities**
+
+### **1️⃣ Download CRM CSV from S3**
+
+* Uses `S3Hook`
+* Saves to `/tmp/crm_<date>.csv`
+
+### **2️⃣ Load CRM CSV into MySQL**
+
+* Executes SQL file:
+  `extras/sql/stage_load_crm.sql`
+
+### **3️⃣ Call the Product Usage API**
+
+* Uses the ingestion function from
+  `include/fetch_product_usage_pseudocode.py`
+
+### **4️⃣ Merge + Transform**
+
+* Runs SQL:
+  `extras/sql/merge_transform.sql`
+* Builds the daily analytic table
+
+### **5️⃣ Success & Failure Alerts**
+
+Implemented using `EmailOperator`:
+
+* `email_on_success`
+* `email_on_failure`
+
+---
+
+## **6.4 Architecture Diagram (Local Version)**
+
+<p align="center"> <img src="extras/imgs/CleanShot%202025-11-30%20at%2015.07.00@2x.png" width="750"/> </p>
