@@ -2,9 +2,61 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.mysql.operators.mysql import MySqlOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from include.product_usage_api import fetch_product_usage
 from datetime import datetime
 from airflow.operators.email import EmailOperator
+import os
+from datetime import timedelta
+
+API_TOKEN = os.getenv("API_TOKEN")
+AZURE_CONN = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+
+
+def fetch_product_usage(start_date, end_date, blob_path):
+    """
+    Calls the product usage API for a date range
+    and writes each day's response to Azure Blob Storage.
+    """
+
+    import requests
+    from azure.storage.blob import BlobClient
+    import json
+
+    current = start_date
+
+    while current <= end_date:
+
+        # Convert date object to ISO string
+        date_str = current.isoformat()
+
+        # Build daily endpoint
+        url = f"https://api.company.com/product-usage?date={date_str}"
+
+        # API call
+        response = requests.get(url, headers={"Authorization": f"Bearer {API_TOKEN}"})
+        data = response.json()
+
+        # Normalize rows
+        rows = []
+        for record in data.get("usage", []):
+            rows.append(
+                {
+                    "company_id": record.get("company_id"),
+                    "date": record.get("date", date_str),
+                    "active_users": record.get("active_users", 0),
+                    "events": record.get("events", 0),
+                }
+            )
+
+        # Upload to Blob as JSON
+        blob_name = f"{blob_path}/usage_{date_str}.json"
+        blob = BlobClient.from_connection_string(
+            AZURE_CONN, container="staging", blob_name=blob_name
+        )
+
+        blob.upload_blob(json.dumps(rows), overwrite=True)
+
+        # Next day
+        current += timedelta(days=1)
 
 
 def download_crm_from_s3(**context):
@@ -49,7 +101,9 @@ with DAG(
         sql="extras/sql/stage_load_crm.sql",
     )
 
-    fetch_api = PythonOperator(task_id="fetch_usage", python_callable=fetch_usage_api)
+    fetch_api = PythonOperator(
+        task_id="fetch_usage", python_callable=run_api_ingestion, provide_context=True
+    )
 
     merge = MySqlOperator(
         task_id="merge_transform",
@@ -73,4 +127,4 @@ with DAG(
         trigger_rule="one_failed",  # run if any upstream fails
     )
 
-    download_crm >> load_crm >> fetch_api >> merge >> [email_success, email_failure]
+    [download_crm >> load_crm, fetch_api] >> merge >> [email_success, email_failure]
