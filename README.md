@@ -409,9 +409,9 @@ You can pick either of these angles depending on your experience.
 
 ---
 
-### **📢 Update on Daily Activity Pipeline (Quick Heads-Up)**
+### **Update on Daily Activity Pipeline (Quick Heads-Up)**
 
-Hey team — quick update on today’s pipeline issue:
+Hey @everyone — quick update on today’s pipeline issue:
 
 * I’m updating the `fact_events` aggregation to **filter by date** instead of scanning the full table (major performance boost). please tell me if you have concernes about this.
 * This should reduce the job from **3+ hours → a few minutes**.
