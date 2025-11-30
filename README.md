@@ -259,3 +259,166 @@ Implemented using `EmailOperator`:
 ## **6.4 Architecture Diagram (Local Version)**
 
 <p align="center"> <img src="extras/imgs/CleanShot%202025-11-30%20at%2015.07.00@2x.png" width="750"/> </p>
+
+
+
+Perfect — let’s answer **QUESTION 2** step-by-step, clean, professional, and exactly how a senior Data Engineer would respond.
+
+---
+
+# **QUESTION 2 — Performance, Data Quality & Communication**
+
+---
+
+# **1. Top 3 Optimisation Changes (Ranked 1 → 3)**
+
+I will go to SQL model or transformation file.
+
+### ** Add proper partitioning + filtering on date in the query **
+
+**Reason:**
+The current query scans the entire `fact_events` table daily.
+If the table contains a lot of rows, a full-table scan is the root cause of the **3+ hours runtime**.
+
+**Fix:**
+
+```sql
+SELECT company_id, date, SUM(events) AS events
+FROM fact_events
+WHERE date = '{{ ds }}'     -- or equivalent execution date
+GROUP BY company_id, date;
+```
+
+also we can partition the table by date If the table is partitioned by `date` → runtime drops from hours → seconds/minutes.
+
+---
+
+### ** Add an index on (company_id, date)**
+
+**Why rank 2?**
+This requires changing DDL or infra— and this will not be easy in 30 minutes.
+BUT massively improves GROUP BY performance.
+
+Index example:
+
+```sql
+CREATE INDEX idx_events_company_date
+ON fact_events (company_id, date);
+```
+
+---
+
+### ** Pre-aggregate events into a daily aggregation table **
+
+Create an incremental table:
+
+`fact_events_daily` (company_id, date, events)
+
+Then downstream queries become extremely fast.
+
+**But**:
+
+* requires new table
+* requires backfill
+* more work than a 30-min fix
+
+---
+
+# **2. Risks / Flaws in the SQL Snippet & Fixes**
+
+### ** Risk 1 — No date filter (full table scan) **
+
+Every run aggregates **all historical events**, even if only one day is needed.
+
+**Fix:** Add incremental date filter.
+
+---
+
+### ** Risk 2 — Possible duplicate rows or double-counting **
+
+If the underlying table already contains aggregated rows OR duplicates, `SUM(events)` hides the issue. and we need to check the hirarichy.
+
+**Fix:** Add de-duplication:
+
+```sql
+SELECT company_id, date, SUM(events) AS events
+FROM (
+    SELECT DISTINCT company_id, date, event_id, events
+    FROM fact_events
+) t
+GROUP BY company_id, date;
+```
+
+Or enforce primary key `(company_id, date, event_id)`.
+
+---
+
+### ** Risk 3 — Using `date` instead of a proper timestamp or UTC handling **
+
+Dashboard/API mismatches often come from **timezone** issues.
+
+Example mismatch:
+
+* API reports events in UTC
+* fact_events stores local TZ or truncated date
+
+**Fix:** Normalize:
+
+```sql
+CAST(event_timestamp AT TIME ZONE 'UTC' AS DATE) AS date
+```
+
+Align both sources to **UTC**.
+
+---
+
+# **3. Real Pipeline Performance Issue & Debugging Approach**
+
+You can pick either of these angles depending on your experience.
+
+---
+
+## **Option A — Real issue I personally faced (strong answer)**
+
+> “A historical backfill in Databricks became extremely slow because a join between a 500M fact table and a 50K dimension table caused a huge shuffle (600GB). The runtime jumped from 20 minutes to 5 hours.”
+
+### **How I debugged it**
+
+1. **Checked Spark UI**
+
+   * Found massive shuffle read/write.
+2. **Applied Optimisations**
+
+   * Broadcast join for small dimension:
+
+     ```sql
+     BROADCAST(dim_company)
+     ```
+   * Repartitioned by company_id:
+
+     ```python
+     df.repartition("company_id")
+     ```
+
+### **Outcome**
+
+* Runtime dropped from **5 hours → 7 minutes**.
+
+---
+# **4. Slack-Style Update to Analytics Team**
+
+---
+
+### **📢 Update on Daily Activity Pipeline (Quick Heads-Up)**
+
+Hey team — quick update on today’s pipeline issue:
+
+* I’m updating the `fact_events` aggregation to **filter by date** instead of scanning the full table (major performance boost). please tell me if you have concernes about this.
+* This should reduce the job from **3+ hours → a few minutes**.
+* For today only, some historical metrics may still refresh slowly until the optimisation is fully deployed.
+* Please keep an eye out for:
+
+  * Any mismatches between API vs dashboard for today’s date
+  * Unusual spikes in daily events (duplicate data under investigation)
+
+I’ll follow up once today’s run completes successfully. I am here for any quetions :) 
